@@ -3,14 +3,12 @@ import sqlite3
 from pathlib import Path
 from datetime import date, datetime
 import json
-import io
 import pandas as pd
 import streamlit as st
 
 APP_TITLE = "Wealth AI Manager - Ultimate"
 DB_PATH = Path(__file__).with_name("wealth_ultimate.db")
 
-# ---------- Live price engine ----------
 try:
     import yfinance as yf
     YF_AVAILABLE = True
@@ -19,9 +17,6 @@ except Exception:
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
-# ----------------------------
-# Database
-# ----------------------------
 @st.cache_resource
 def get_conn():
     return sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -136,9 +131,6 @@ def bump_cache():
     st.session_state["cache_buster"] = st.session_state.get("cache_buster", 0) + 1
     cached_read_table.clear()
 
-# ----------------------------
-# Helpers
-# ----------------------------
 def load_assets():
     df = read_table("assets")
     if not df.empty:
@@ -271,9 +263,6 @@ def build_ai_summary(df_assets, df_flows, goal_monthly_income=40000):
     lines.append("  • ใช้ What-if ช่วยคิดก่อนลงเงินจริง")
     return "\n".join(lines)
 
-# ----------------------------
-# Live price
-# ----------------------------
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_live_price_cached(symbol: str):
     if not YF_AVAILABLE or not symbol:
@@ -285,12 +274,11 @@ def fetch_live_price_cached(symbol: str):
             price = float(hist["Close"].dropna().iloc[-1])
             return price, "ok"
         fi = getattr(ticker, "fast_info", None)
-        if fi:
-            if isinstance(fi, dict):
-                for key in ["lastPrice", "regularMarketPrice", "previousClose"]:
-                    val = fi.get(key)
-                    if val:
-                        return float(val), "ok"
+        if fi and isinstance(fi, dict):
+            for key in ["lastPrice", "regularMarketPrice", "previousClose"]:
+                val = fi.get(key)
+                if val:
+                    return float(val), "ok"
         return None, "ไม่พบราคาจาก Yahoo Finance"
     except Exception as e:
         return None, str(e)
@@ -311,7 +299,6 @@ def refresh_all_prices():
         if not symbol:
             logs.append(f"ข้าม {row['asset_name']} : ไม่มี symbol")
             continue
-
         price, status = fetch_live_price(symbol)
         if price is not None:
             run_query(
@@ -325,9 +312,6 @@ def refresh_all_prices():
     bump_cache()
     return updated, logs
 
-# ----------------------------
-# Backup / restore
-# ----------------------------
 def export_backup_json():
     data = {
         "assets": read_table("assets").to_dict(orient="records"),
@@ -382,9 +366,6 @@ def restore_from_backup_json(text):
 def table_to_csv_bytes(df):
     return df.to_csv(index=False).encode("utf-8-sig")
 
-# ----------------------------
-# What-if
-# ----------------------------
 def build_scenario(df_assets, equity_change_pct, gold_change_pct, cash_change_pct=0):
     if df_assets.empty:
         return None, 0, 0
@@ -407,9 +388,6 @@ def build_scenario(df_assets, equity_change_pct, gold_change_pct, cash_change_pc
     diff = future_total - now_total
     return sim, now_total, diff
 
-# ----------------------------
-# CRUD helpers
-# ----------------------------
 def delete_by_id(table, row_id):
     run_query(f"DELETE FROM {table} WHERE id=?", (int(row_id),))
     bump_cache()
@@ -420,9 +398,6 @@ def update_asset_price(asset_id, current_price, target_price, annual_income, not
     """, (current_price, target_price, annual_income, note, datetime.now().isoformat(timespec='seconds'), int(asset_id)))
     bump_cache()
 
-# ----------------------------
-# App
-# ----------------------------
 init_db()
 
 st.title(APP_TITLE)
@@ -492,7 +467,6 @@ with tabs[1]:
             st.success("บันทึกแล้ว")
 
     df_assets = load_assets()
-    st.subheader("ตารางสินทรัพย์")
     if not df_assets.empty:
         st.dataframe(df_assets[[
             "id", "asset_name", "asset_type", "symbol", "quantity", "cost_per_unit",
@@ -542,7 +516,7 @@ with tabs[2]:
     if not df_flows.empty:
         st.dataframe(df_flows, use_container_width=True)
         monthly = df_flows.copy()
-        monthly["month"] = monthly["flow_date"].dt.strftime("%Y-%m")
+        monthly["month"] = df_flows["flow_date"].dt.strftime("%Y-%m")
         monthly_sum = monthly.groupby("month", as_index=False)["amount"].sum().sort_values("month")
         st.subheader("สรุปสุทธิรายเดือน")
         st.bar_chart(monthly_sum.set_index("month"))
@@ -632,8 +606,6 @@ with tabs[5]:
             else:
                 st.error(f"ไม่สำเร็จ: {status}")
 
-    st.caption("ราคาจะถูก cache ชั่วคราวเพื่อลดการเรียกซ้ำ และเร่งความเร็วหน้าเว็บ")
-
 with tabs[6]:
     st.subheader("What-if Analysis")
     df_assets = load_assets()
@@ -652,7 +624,6 @@ with tabs[6]:
 
 with tabs[7]:
     st.subheader("Backup / Restore")
-    st.write("สำคัญมากถ้าคุณ deploy บน Community Cloud เพราะไฟล์ local ไม่ได้การันตีว่าจะอยู่ถาวร")
     backup_json = export_backup_json()
     st.download_button("ดาวน์โหลด backup.json", backup_json.encode("utf-8"), "wealth_backup.json", "application/json")
 
@@ -676,25 +647,17 @@ with tabs[8]:
 ### โครงไฟล์ที่ควรอยู่ใน GitHub
 - `app.py`
 - `requirements.txt`
-- `.streamlit/config.toml` (มีหรือไม่มีก็ได้ แต่ใส่ธีมให้แล้ว)
+- `.streamlit/config.toml`
 
 ### ขั้นตอน
 1. สร้าง GitHub repository ใหม่
 2. อัปโหลดไฟล์ทั้งหมดขึ้น repo
 3. เข้า Streamlit Community Cloud
 4. ล็อกอินและเชื่อม GitHub
-5. กด **Deploy an app**
+5. กด Deploy an app
 6. เลือก repository ของคุณ
-7. ตั้งค่า **Main file path** เป็น `app.py`
+7. ตั้งค่า Main file path เป็น `app.py`
 8. กด Deploy
-
-### เวลาแก้โค้ด
-แก้ไฟล์ใน GitHub แล้ว push ขึ้น repo
-Community Cloud จะ rebuild / redeploy ให้เอง
-
-### ถ้ามี API key ในอนาคต
-อย่าใส่ในโค้ด
-ให้ใช้เมนู **Secrets** ของ Streamlit แล้วเรียกผ่าน `st.secrets`
 
 ### ข้อควรระวัง
 - local file / SQLite บน Community Cloud ไม่ควรใช้เป็นที่เก็บข้อมูลถาวร
