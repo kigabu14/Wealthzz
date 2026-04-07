@@ -436,11 +436,11 @@ with tabs[0]:
             top_assets = df_assets.sort_values("market_value", ascending=False)[[
                 "asset_name", "asset_type", "symbol", "market_value", "unrealized_pl", "updated_at"
             ]].head(10)
-            st.dataframe(top_assets, use_container_width=True)
+            st.dataframe(top_assets, width="stretch")
 
         st.subheader("Export เร็ว ๆ")
-        st.download_button("ดาวน์โหลด assets.csv", table_to_csv_bytes(df_assets), "assets.csv", "text/csv")
-        st.download_button("ดาวน์โหลด backup.json", export_backup_json().encode("utf-8"), "wealth_backup.json", "application/json")
+        st.download_button("ดาวน์โหลด assets.csv", table_to_csv_bytes(df_assets), "assets.csv", "text/csv", key="dashboard_assets_csv")
+        st.download_button("ดาวน์โหลด backup.json", export_backup_json().encode("utf-8"), "wealth_backup.json", "application/json", key="dashboard_backup_json")
 
 with tabs[1]:
     st.subheader("เพิ่มสินทรัพย์")
@@ -472,7 +472,7 @@ with tabs[1]:
             "id", "asset_name", "asset_type", "symbol", "quantity", "cost_per_unit",
             "current_price", "cost_value", "market_value", "unrealized_pl",
             "annual_income", "yield_on_cost_pct", "target_price", "target_gap_pct", "note", "updated_at"
-        ]], use_container_width=True)
+        ]], width="stretch")
 
         st.subheader("แก้ไขราคาหรือรายได้ของรายการ")
         asset_ids = df_assets["id"].tolist()
@@ -514,7 +514,7 @@ with tabs[2]:
 
     df_flows = load_cashflows()
     if not df_flows.empty:
-        st.dataframe(df_flows, use_container_width=True)
+        st.dataframe(df_flows, width="stretch")
         monthly = df_flows.copy()
         monthly["month"] = df_flows["flow_date"].dt.strftime("%Y-%m")
         monthly_sum = monthly.groupby("month", as_index=False)["amount"].sum().sort_values("month")
@@ -561,7 +561,7 @@ with tabs[3]:
         st.dataframe(df_goals[[
             "id", "goal_name", "target_amount", "current_amount", "monthly_contribution",
             "expected_return", "years", "future_value", "progress_pct", "gap_to_target", "note"
-        ]], use_container_width=True)
+        ]], width="stretch")
 
         goal_ids = df_goals["id"].tolist()
         del_goal_id = st.selectbox("เลือก ID เป้าหมายที่จะลบ", goal_ids)
@@ -584,7 +584,7 @@ with tabs[4]:
     extra_cash = c3.checkbox("เพิ่มเงินสำรองอีก 5%", value=True)
     alloc_df = suggest_allocation(lump_sum, style, extra_cash)
     if not alloc_df.empty:
-        st.dataframe(alloc_df, use_container_width=True)
+        st.dataframe(alloc_df, width="stretch")
         st.bar_chart(alloc_df.set_index("หมวด")["จำนวนเงิน"])
 
 with tabs[5]:
@@ -620,19 +620,19 @@ with tabs[6]:
         st.dataframe(sim[[
             "asset_name", "asset_type", "current_price", "scenario_price",
             "market_value", "scenario_value", "scenario_pl_vs_cost"
-        ]], use_container_width=True)
+        ]], width="stretch")
 
 with tabs[7]:
     st.subheader("Backup / Restore")
     backup_json = export_backup_json()
-    st.download_button("ดาวน์โหลด backup.json", backup_json.encode("utf-8"), "wealth_backup.json", "application/json")
+    st.download_button("ดาวน์โหลด backup.json", backup_json.encode("utf-8"), "wealth_backup.json", "application/json", key="backup_tab_backup_json")
 
     df_assets = load_assets()
     df_flows = load_cashflows()
     df_goals = load_goals()
-    st.download_button("ดาวน์โหลด assets.csv", table_to_csv_bytes(df_assets), "assets.csv", "text/csv")
-    st.download_button("ดาวน์โหลด cashflows.csv", table_to_csv_bytes(df_flows), "cashflows.csv", "text/csv")
-    st.download_button("ดาวน์โหลด goals.csv", table_to_csv_bytes(df_goals), "goals.csv", "text/csv")
+    st.download_button("ดาวน์โหลด assets.csv", table_to_csv_bytes(df_assets), "assets.csv", "text/csv", key="backup_tab_assets_csv")
+    st.download_button("ดาวน์โหลด cashflows.csv", table_to_csv_bytes(df_flows), "cashflows.csv", "text/csv", key="backup_tab_cashflows_csv")
+    st.download_button("ดาวน์โหลด goals.csv", table_to_csv_bytes(df_goals), "goals.csv", "text/csv", key="backup_tab_goals_csv")
 
     uploaded = st.file_uploader("อัปโหลด backup.json เพื่อกู้ข้อมูล", type=["json"])
     if uploaded is not None:
